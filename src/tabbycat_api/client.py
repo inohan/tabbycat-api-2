@@ -1,7 +1,8 @@
 from __future__ import annotations
 import httpx
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Optional
 import logging
+from urllib.parse import urlparse, urljoin
 
 if TYPE_CHECKING:
     from .config import ClientConfig
@@ -32,7 +33,7 @@ class Client:
         )
         self._cache = config.cache
     
-    async def get_from_url(self, url: str) -> IdentifiableBase:
+    async def get_from_url(self, url: str, *, load: bool = True, register: bool = True) -> IdentifiableBase:
         """Get object from url
 
         Args:
@@ -41,13 +42,23 @@ class Client:
         Returns:
             IdentifiableBase: the object
         """
-        obj = self.get_and_set_data(url, None)
-        if not obj._loaded:
+        url = urljoin(self._config.base_url, url)
+        obj = self.get_and_set_data(url, None, register=register)
+        if not obj._loaded and load:
             await obj._request_async("GET")
         return obj
     
+    async def get_v1(self) -> models.V1Root:
+        return await self.get_from_url("/api/v1")
+    
+    async def get_tournaments(self) -> models.PaginatedTournaments:
+        return await self.get_from_url("/api/v1/tournaments")
+    
     async def get_tournament(self, tournament_slug: str) -> models.Tournament:
-        return await self.get_from_url(f"{self._config.base_url}/api/v1/tournaments/{tournament_slug}")
+        return await self.get_from_url(f"/api/v1/tournaments/{tournament_slug}")
+    
+    async def get_institutions(self) -> models.PaginatedInstitutions:
+        return await self.get_from_url("/api/v1/institutions")
     
     async def _request_async(self, method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"], url: str, body: dict|list, params: dict = None) -> dict | list:
         if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
@@ -76,7 +87,7 @@ class Client:
         res.raise_for_status()
         return res.json()
     
-    def get_and_set_data(self, identifier: str, type_validate: type|None, content: dict|None = None) -> IdentifiableBase:
+    def get_and_set_data(self, identifier: str, type_validate: type|None, content: dict|None = None, register: bool = True) -> IdentifiableBase:
         """Get from cache / create object with identifier and set data if provided
 
         Args:
@@ -99,7 +110,8 @@ class Client:
                 raise ValueError(f"Inferred object with identifier {identifier} is not a subclass of {type_validate}")
             obj = cls._from_client(self)
             obj._href = identifier
-            self._cache.set(identifier, obj)
+            if register:
+                self._cache.set(identifier, obj)
         elif type_validate is not None and not isinstance(obj, type_validate):
             raise ValueError(f"Cached object with identifier {identifier} is not an instance of {type_validate}")
         if content is not None:

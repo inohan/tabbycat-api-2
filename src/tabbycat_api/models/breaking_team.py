@@ -7,7 +7,7 @@ from .enums import RemarkEnum, BlankEnum
 from .team import Team
 
 @dataclass(repr=False)
-class BreakingTeam(IdentifiableBase):
+class BreakingTeam(BaseClass):
     team: UrlStr[Team] = datafield(False, True)
     rank: int = datafield(False, True)
     break_rank: int = datafield(False, False)

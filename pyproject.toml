@@ -7,7 +7,15 @@ license = { text = "MIT" }
 authors = [{ name = "ino_haan" }]
 requires-python = ">=3.13"
 dependencies = [
+    "cryptography==42.0.5",
+    "flet[all]>=0.27.5",
+    "google-api-python-client>=2.164.0",
+    "google-auth>=2.38.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.2.1",
     "httpx>=0.28.1",
+    "openpyxl>=3.1.5",
+    "pandas>=2.2.3",
 ]
 
 [project.optional-dependencies]
@@ -22,7 +30,6 @@ dev = [
 requires = ["wheel", "setuptools"]
 build-backend = "setuptools.build_meta"
 
-
 [tool.pytest.ini_options]
 pythonpath = "src"
 addopts = [
@@ -30,4 +37,13 @@ addopts = [
 ]
 testpaths = [
     "tests",
+]
+
+[tool.flet]
+app.module = "main"
+app.path = "src/tabbycat_flet"
+
+[dependency-groups]
+dev = [
+    "coloredlogs>=15.0.1",
 ]

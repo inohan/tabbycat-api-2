@@ -12,7 +12,7 @@ class DebateAdjudicator(BaseClass):
 
 @dataclass(repr=False)
 class DebateTeam(BaseClass):
-    team: Team = datafield(False, True)
+    team: UrlStr[Team] = datafield(False, True)
     side: int|SideEnum = datafield(False, False)
 
 from .team import Team

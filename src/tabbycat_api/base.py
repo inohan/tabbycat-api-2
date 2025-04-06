@@ -9,7 +9,7 @@ import asyncio
 from warnings import deprecated
 from httpx import HTTPStatusError
 
-from . import config
+from . import config, exceptions
 from .client import Client
 
 #TODO: Add support for DELETEd objects, weakrefs, automatic update of Paginated data when DELETE/POST is called
@@ -19,6 +19,9 @@ LOGGER = logging.getLogger(__name__)
 class _NULL:
     def __repr__(self):
         return "<NIL>"
+    
+    def __bool__(self):
+        return False
 
 NULL = _NULL()
 
@@ -54,7 +57,7 @@ class BaseClass:
     _client: Client|None = field(default=None, init=False)
     _client_made: bool = field(default=False, init=False)
     
-    IGNORED_ATTRIBUTES: ClassVar[set[str]] = {"_client", "IGNORED_ATTRIBUTES", "JSON_ATTRIBUTES"}
+    IGNORED_ATTRIBUTES: ClassVar[set[str]] = {"_client", "_client_made", "IGNORED_ATTRIBUTES", "JSON_ATTRIBUTES"}
     JSON_ATTRIBUTES: ClassVar[dict[Literal["GET", "POST", "PUT", "PATCH", "DELETE"] | str, set[str]]] = {}
     
     def _is_data_attribute(self, name: str) -> bool:
@@ -80,40 +83,42 @@ class BaseClass:
         attrs = [
             f'{k}={v}'
             for k in self._get_data_fields()
-            if k not in self.IGNORED_ATTRIBUTES and (v := getattr(self, k)) is not NULL
+            if k not in self.IGNORED_ATTRIBUTES and (v := object.__getattribute__(self, k)) is not NULL
         ]
         return f"<{self.__class__.__name__} {', '.join(attrs)}>"
     
     def _parse_data[T](self, data: Any, type_: type[T]) -> T:
-        if data is None or data is NULL:
-            return data
-        # UrlStr[IdentifiableBase], UrlStr[list[IdentifiableBase]], UrlStr[Union[IdentifiableBase]], UrlStr[list[Union[IdentifiableBase]]]
-        if get_origin(type_) is UrlStr:
-            type_arg = get_args(type_)[0]
-            if get_origin(type_arg) is list:
-                # data: list[str]
-                return [self._client.get_and_set_data(data, get_args(type_arg)[0]) for data in data]
-            # type_arg: IdentifiableBase | Union[IdentifiableBase]
-            return self._client.get_and_set_data(data, type_arg)
-        base = check_base_recursive(type_)
-        # Not associated with BaseClass (i.e. a string, Literal, number, etc.)
-        if base is None:
-            return data
-        # BaseClasses that need caching
-        if issubclass(base, IdentifiableBase):
-            # FIXME: Atomicity is not ensured when some objects fail during caching
-            if get_origin(type_) is list:
-                return [self._client.get_and_set_data(d.get("url"), base, content=d) for d in data]
-            return self._client.get_and_set_data(data.get("url"), base, content=data)
-        if issubclass(base, BaseClass):
-            def _parse_base(data: dict[str, Any]) -> BaseClass:
-                obj = base._from_client(self._client)
-                obj.update_data(data)
-                return obj
-            if get_origin(type_) is list:
-                return [_parse_base(d) for d in data]
-            return _parse_base(data)
-        raise TypeError(f"Invalid type {type_} found in object")
+        try:
+            if data is None or data is NULL:
+                return data
+            # UrlStr[IdentifiableBase], UrlStr[list[IdentifiableBase]], UrlStr[Union[IdentifiableBase]], UrlStr[list[Union[IdentifiableBase]]]
+            if get_origin(type_) is UrlStr:
+                type_arg = get_args(type_)[0]
+                if get_origin(type_arg) is list:
+                    # data: list[str]
+                    return [self._client.get_and_set_data(data, get_args(type_arg)[0]) for data in data]
+                # type_arg: IdentifiableBase | Union[IdentifiableBase]
+                return self._client.get_and_set_data(data, type_arg)
+            base = check_base_recursive(type_)
+            # Not associated with BaseClass (i.e. a string, Literal, number, etc.)
+            if base is None:
+                return data
+            # BaseClasses that need caching
+            if issubclass(base, IdentifiableBase):
+                # FIXME: Atomicity is not ensured when some objects fail during caching
+                if get_origin(type_) is list:
+                    return [self._client.get_and_set_data(d.get("url"), base, content=d) for d in data]
+                return self._client.get_and_set_data(data.get("url"), base, content=data)
+            if issubclass(base, BaseClass):
+                def _parse_base(data: dict[str, Any]) -> BaseClass:
+                    obj = base._from_client(self._client)
+                    obj.update_data(data)
+                    return obj
+                if get_origin(type_) is list:
+                    return [_parse_base(d) for d in data]
+                return _parse_base(data)
+        except Exception as e:
+            raise TypeError(f"Error parsing data {data} to type {type_}") from e
     
     @deprecated("Use _parse_data for atomic updating")
     def _parse_and_insert_data(self, name: str, value: Any) -> Any:
@@ -281,7 +286,7 @@ class IdentifiableBase(BaseClass):
     _href: str|None = field(default=None, init=False)
     _loaded: bool = field(default=False, init=False)
     
-    IGNORED_ATTRIBUTES: ClassVar[set[str]] = {"_client", "_href", "_loaded", "IGNORED_ATTRIBUTES", "JSON_ATTRIBUTES", "AVAILABLE_METHODS", "RESPONSE_HANDLER"}
+    IGNORED_ATTRIBUTES: ClassVar[set[str]] = {"_client", "_client_made", "_href", "_loaded", "IGNORED_ATTRIBUTES", "JSON_ATTRIBUTES", "AVAILABLE_METHODS", "RESPONSE_HANDLER"}
     AVAILABLE_METHODS: ClassVar[set[Literal["GET", "POST", "PUT", "PATCH", "DELETE"]]] = {"GET"}
     RESPONSE_HANDLER: ClassVar[ResponseHandler | None] = None
     JSON_ATTRIBUTES: ClassVar[dict[Literal["GET", "POST", "PUT", "PATCH", "DELETE"] | str, set[str]]] = {
@@ -300,9 +305,14 @@ class IdentifiableBase(BaseClass):
     
     @override
     def __repr__(self):
-        if self._loaded:
+        if self._loaded or not self._client_made:
             return super().__repr__()
         return f"<Lazy {self.__class__.__name__} href={self._href}>"
+    
+    def __hash__(self):
+        if self._href is not None and self._href is not NULL:
+            return hash(self._href)
+        return None
     
     @override
     def update_data(self, data):

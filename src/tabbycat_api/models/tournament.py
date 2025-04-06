@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-
+from typing import Optional
 from ..base import BaseClass, IdentifiableBase, UrlStr, PaginatedBase, datafield
 
 @dataclass(repr=False)
@@ -46,28 +46,34 @@ class Tournament(IdentifiableBase):
         obj = self._client.get_and_set_data(resp["url"], type(object), resp)
         return obj
     
-    async def get_speaker_standings(self) -> PaginatedSpeakerStandings:
+    async def get_speaker_standings(self, speaker_category: Optional[SpeakerCategory] = None) -> PaginatedSpeakerStandings:
         """Get the speaker standings for the tournament
 
         Returns:
             PaginatedSpeakerStandings: Result of the request
         """
+        if speaker_category:
+            return await self._client.get_from_url(f"{self._href}/speakers/standings?category={speaker_category.id}")
         return await self._client.get_from_url(f"{self._href}/speakers/standings")
     
-    async def get_reply_standings(self) -> PaginatedSpeakerStandings:
+    async def get_reply_standings(self, speaker_category: Optional[SpeakerCategory] = None) -> PaginatedSpeakerStandings:
         """Get the reply speaker standings for the tournament
 
         Returns:
             PaginatedTeamStandings: Result of the request
         """
+        if speaker_category:
+            return await self._client.get_from_url(f"{self._href}/speakers/standings/replies?category={speaker_category.id}")
         return await self._client.get_from_url(f"{self._href}/speakers/standings/replies")
     
-    async def get_team_standings(self) -> PaginatedTeamStandings:
+    async def get_team_standings(self, break_category: Optional[BreakCategory] = None) -> PaginatedTeamStandings:
         """Get the team standings for the tournament
 
         Returns:
             PaginatedTeamStandings: Result of the request
         """
+        if break_category:
+            return await self._client.get_from_url(f"{self._href}/teams/standings?category={break_category.id}")
         return await self._client.get_from_url(f"{self._href}/teams/standings")
 
 @dataclass(repr=False)
@@ -75,13 +81,13 @@ class PaginatedTournaments(PaginatedBase[Tournament]):
     _data: list[Tournament] = datafield(True, True)
 
 from .institution import PaginatedPerTournamentInstitutions
-from .break_category import PaginatedBreakCategories
+from .break_category import PaginatedBreakCategories, BreakCategory
 from .round import PaginatedRounds, Round
 from .motion import PaginatedMotions
 from .team import PaginatedTeams
 from .speaker import PaginatedSpeakers
 from .adjudicator import PaginatedAdjudicators
-from .speaker_category import PaginatedSpeakerCategories
+from .speaker_category import PaginatedSpeakerCategories, SpeakerCategory
 from .venue_category import PaginatedVenueCategories
 from .venue import PaginatedVenues
 from .feedback import PaginatedFeedbacks

@@ -38,8 +38,8 @@ class Result(BaseClass):
 
 @dataclass(repr=False)
 class Veto(BaseClass):
-    team: Team = datafield(True, True)
-    motion: Motion = datafield(True, True)
+    team: UrlStr[Team] = datafield(True, True)
+    motion: UrlStr[Motion] = datafield(True, True)
 
 @dataclass(repr=False)
 class Ballot(IdentifiableBase):

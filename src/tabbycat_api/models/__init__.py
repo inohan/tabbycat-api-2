@@ -19,10 +19,10 @@ from .score_criteria import ScoreCriterion, PaginatedScoreCriteria
 from .speaker_category import SpeakerCategory, PaginatedSpeakerCategories
 from .speaker_eligibility import SpeakerEligibility
 from .speaker_round_score import SpeakerRoundScore, PaginatedSpeakerRoundScores
-from .speaker_standing import SpeakerStanding, PaginatedSpeakerStandings
+from .speaker_standing import SpeakerStanding, PaginatedSpeakerStandings, SpeakerStandingMetric
 from .team import Team, PaginatedTeams
 from .team_round_score import TeamRoundScore, PaginatedTeamRoundScores
-from .team_standing import TeamStanding, PaginatedTeamStandings
+from .team_standing import TeamStanding, PaginatedTeamStandings, TeamStandingMetric
 from .tournament import Tournament, PaginatedTournaments
 from .group import Group, PaginatedGroups
 from .user import User, PaginatedUsers

@@ -15,7 +15,6 @@ class BreakCategoryLinks(BaseClass):
 @dataclass(repr=False)
 class BreakCategory(IdentifiableBase):
     name: str = datafield(False, True)
-    _links: BreakCategoryLinks = datafield(True, True)
     slug: str = datafield(False, True)
     seq: int = datafield(False, True)
     break_size: int = datafield(False, True)
@@ -23,6 +22,7 @@ class BreakCategory(IdentifiableBase):
     priority: int = datafield(False, True)
     limit: int = datafield(False, False)
     rule: BreakCategoryRuleEnum = datafield(False, False)
+    _links: BreakCategoryLinks = datafield(True, True)
     id: int = datafield(True, True)
     url: str = datafield(True, True)
     

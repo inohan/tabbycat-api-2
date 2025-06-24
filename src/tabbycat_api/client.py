@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Literal, Optional
 import logging
 from urllib.parse import urlparse, urljoin
 
+from .exceptions import HTTPStatusException
+
 if TYPE_CHECKING:
     from .config import ClientConfig
     from .cache import BaseCache
@@ -71,10 +73,11 @@ class Client:
             LOGGER.info(f"{method} {url} [{res.status_code}] {body}")
         except httpx.HTTPStatusError as e:
             msg = f"{method} {url} [{res.status_code}] {body}"
-            if res.status_code == 400:
-                msg += f" -> {res.json()}"
+            msg_json = res.json() if res.headers.get("Content-Type") == "application/json" else None
+            if msg_json:
+                msg += f" -> {msg_json}"
             LOGGER.error(msg)
-            raise e
+            raise HTTPStatusException(f"Status code {res.status_code} for {method} {url}" + f": {msg_json}" if msg_json else "")
         return res.json() if res.text else None
     
     def _request_sync(self, method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"], url: str, body: dict|list, params: dict) -> dict | list:
@@ -83,8 +86,16 @@ class Client:
         if method != "GET" and not self._config.editable:
             raise Exception("Client is not editable")
         res = self._sync_client.request(method, url, params=params, json=body)
-        LOGGER.info(f"{method} {url} [{res.status_code}]")
-        res.raise_for_status()
+        try:
+            res.raise_for_status()
+            LOGGER.info(f"{method} {url} [{res.status_code}]")
+        except httpx.HTTPStatusError as e:
+            msg = f"{method} {url} [{res.status_code}] {body}"
+            msg_json = res.json() if res.headers.get("Content-Type") == "application/json" else None
+            if msg_json:
+                msg += f" -> {msg_json}"
+            LOGGER.error(msg)
+            raise HTTPStatusException(f"Status code {res.status_code} for {method} {url}" + f": {msg_json}" if msg_json else "")
         return res.json()
     
     def get_and_set_data(self, identifier: str, type_validate: type|None, content: dict|None = None, register: bool = True) -> IdentifiableBase:

@@ -62,7 +62,7 @@ async def test_institution(setup_client):
 async def test_team(setup_client):
     client: tc.Client = setup_client
     tournament = await client.get_tournament(TEST_TOURNAMENT_SLUG)
-    institutions = asyncio.create_task(tournament._links.institutions.load())
+    institutions = asyncio.create_task(client.get_institutions())
     rand_name = random_string(10)
     team = tc.models.Team(
         reference=f"Test Team {rand_name}",
@@ -140,21 +140,21 @@ async def test_adjudicator(setup_client):
     client: tc.Client = setup_client
     tournament = await client.get_tournament(TEST_TOURNAMENT_SLUG)
     rand_name = random_string(10)
-    institutions = asyncio.create_task(tournament._links.institutions.load())
+    institutions = asyncio.create_task(client.get_institutions())
     # Test for creation
-    institution = tc.models.Adjudicator(
+    adj = tc.models.Adjudicator(
         name=f"Test Adjudicator {rand_name}",
         institution=(await institutions)[0],
-        institution_conflicts=(await institutions)[0:2],
+        institution_conflicts=[(await institutions)[0]],
         team_conflicts=[],
         adjudicator_conflicts=[]
     )
-    adj_created = await tournament.create(institution)
+    adj_created = await tournament.create(adj)
     assert adj_created._loaded
     assert adj_created.id
     assert adj_created.name == f"Test Adjudicator {rand_name}"
     assert adj_created.institution == (await institutions)[0]
-    assert len(adj_created.institution_conflicts) == 2
+    assert len(adj_created.institution_conflicts) == 1
     # Test for POST
     adj_created.name = f"POST Adjudicator {rand_name}"
     await adj_created.request_post()

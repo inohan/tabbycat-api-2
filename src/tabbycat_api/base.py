@@ -186,12 +186,15 @@ class BaseClass:
         return obj
     
     def update_data(self, data: dict[str, Any]):
-        parsed_data: dict[str, Any] = {
-            k: self._parse_data(v, get_type_hints(self.__class__)[k])
-            for k, v in data.items()
-        }
+        type_hints = get_type_hints(self.__class__)
+        parsed_data: dict[str, Any] = {}
+        for k, v in data.items():
+            if k not in type_hints:
+                LOGGER.warning(f"Ignoring attribute {k} for class {self.__class__.__name__}.")
+                continue
+            parsed_data[k] = self._parse_data(v, type_hints[k])
         for key, value in parsed_data.items():
-            assert self._is_data_attribute(key), f"Invalid key {key} found in object"
+            # assert self._is_data_attribute(key), f"Invalid key {key} found in object"
             super().__setattr__(key, value)
         # for key in self._get_data_fields():
         #     value = data.get(key, NULL)
